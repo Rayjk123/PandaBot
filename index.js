@@ -10,6 +10,8 @@ client.on('message', onMessageHandler);
 
 client.connect();
 
+let usersWhoHaveGambled = [];
+
 function onConnectedHandler(addr, port) {
     console.log('connected on addr: ' + addr + ' port: ' + port);
     config.channels.forEach(function (channel) {
@@ -34,13 +36,20 @@ function onMessageHandler(channel, user, message, self) {
     }
 
     if (command[0] === "!points") {
-        database.grabPointsByUser(username).then(function(points) {
+        database.grabPointsByUser(username).then(function (points) {
             client.action(channel, username + ' has ' + points + ' points');
         });
+        return;
+
     } else if (command[0] === "!gamble" && command.length === 2) {
-        if (command[1] !== 'all' && !isNaN(parseInt(command[1], 10))) {
+        if (usersWhoHaveGambled.includes(username)) {
+            client.action(channel, username + ' has already gambled in the past 5 minutes, please wait to try again.');
             return;
         }
+        if (command[1] !== 'all' && isNaN(parseInt(command[1], 10))) {
+            return;
+        }
+
         database.grabPointsByUser(username).then(function (points) {
             let numToGamble;
             if (command[1] === 'all') {
@@ -49,15 +58,22 @@ function onMessageHandler(channel, user, message, self) {
                 numToGamble = parseInt(command[1], 10);
             }
 
-            if (num > points) {
+            if (numToGamble > points) {
                 client.action(channel, username + ' doesn\'t have enough points. You have ' + points + ' points');
                 return;
             }
-            gamble(channel, username, numToGamble);
+            gamble(channel, username, points, numToGamble);
         });
+
+        usersWhoHaveGambled.push(username);
+        return;
+    } else if (command[0] === '!help') {
+        client.action(channel, 'Possible commands are !points and !gamble and Channel Owners can !incrementAll');
+        return;
     }
-    if (user === 'rosebananax33' || 'pandalifestyle0') {
-        if (command[0] === "!incrementPoints" && command.length > 2 && !isNaN(parseInt(command[1], 10))) {
+
+    if (username === 'rosebananax33' || username === 'pandalifestyle0') {
+        if (command[0] === "!incrementall" && command.length >= 2 && !isNaN(parseInt(command[1], 10))) {
             const num = parseInt(command[1]);
             if (num <= 0 || num >= 1000) {
                 client.action(channel, 'Valid number of points to increment is between 1 and 999');
@@ -65,11 +81,14 @@ function onMessageHandler(channel, user, message, self) {
             }
 
             incrementPointsAllUsersForChannel(channel, num);
+            client.action(channel, username + ' has incremented everyone\'s points by ' + num + ' PogChamp');
         }
     }
 }
 
-new CronJob('*/5 * * * *', function() {
+new CronJob('*/5 * * * *', function () {
+    console.log('incrementing all user points on Cron');
+    usersWhoHaveGambled = [];
     config.channels.forEach(function (channel) {
         incrementPointsAllUsersForChannel(channel, 5);
     });
@@ -83,17 +102,18 @@ function incrementPointsAllUsersForChannel(channel, numPoints) {
         }
         const jsonBody = JSON.parse(body);
         const usernames = jsonBody['chatters'] === undefined ? [] : jsonBody['chatters']['viewers'];
+        usernames.push(channel.replace('#', ''));
         database.incrementAllUsersPoints(usernames, numPoints);
     });
 }
 
-function gamble(channel, username, numPoints) {
+function gamble(channel, username, curPoints, pointsGambled) {
     if (doesWinGamble()) {
-        client.action(channel, username + ' has won the gamble! You have ' + (numPoints + num) + ' points');
-        database.incrementUserPoints(username, num);
+        client.action(channel, username + ' has won the gamble! You have ' + (curPoints + pointsGambled) + ' points');
+        database.incrementUserPoints(username, pointsGambled);
     } else {
-        client.action(channel, username + ' has lost the gamble BibleThump You have ' + (numPoints - num) + ' points');
-        database.decreaseUserPoints(username, num);
+        client.action(channel, username + ' has lost the gamble BibleThump You have ' + (curPoints - pointsGambled) + ' points');
+        database.decreaseUserPoints(username, pointsGambled);
     }
 }
 
