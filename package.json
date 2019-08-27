@@ -9,6 +9,7 @@
   "author": "Panda",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/logging-winston": "^2.0.0",
     "cron": "^1.7.1",
     "promise-mysql": "^4.1.0",
     "request": "^2.88.0",

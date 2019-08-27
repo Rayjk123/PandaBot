@@ -3,6 +3,19 @@ var request = require('request');
 var CronJob = require('cron').CronJob;
 const database = require('./database');
 const config = require('./config').config;
+const winston = require('winston');
+const {LoggingWinston} = require('@google-cloud/logging-winston');
+const loggingWinston = new LoggingWinston();
+
+const logger = winston.createLogger({
+    level: 'info',
+    transports: [
+        new winston.transports.Console(),
+        // Add Stackdriver Logging
+        loggingWinston,
+    ],
+});
+
 
 const client = new tmi.client(config);
 client.on('connected', onConnectedHandler);
@@ -13,7 +26,7 @@ client.connect();
 let usersWhoHaveGambled = [];
 
 function onConnectedHandler(addr, port) {
-    console.log('connected on addr: ' + addr + ' port: ' + port);
+    logger.info('connected on addr: ' + addr + ' port: ' + port);
     config.channels.forEach(function (channel) {
         // client.action(channel, config.identity.username + ' has connected!');
     });
@@ -31,9 +44,11 @@ function onMessageHandler(channel, user, message, self) {
     const command = message.trim().toLowerCase().split(/\b\s+/);
     const username = user['username'];
 
+
     if (command.length < 1) {
         return;
     }
+    logger.info(username + " running command: " + command);
 
     if (command[0] === "!points") {
         database.grabPointsByUser(username).then(function (points) {
@@ -87,7 +102,6 @@ function onMessageHandler(channel, user, message, self) {
 }
 
 new CronJob('*/5 * * * *', function () {
-    console.log('incrementing all user points on Cron');
     usersWhoHaveGambled = [];
     config.channels.forEach(function (channel) {
         incrementPointsAllUsersForChannel(channel, 5);
@@ -97,7 +111,7 @@ new CronJob('*/5 * * * *', function () {
 function incrementPointsAllUsersForChannel(channel, numPoints) {
     request('https://tmi.twitch.tv/group/user/' + channel.replace('#', '') + '/chatters', function (error, response, body) {
         if (error) {
-            console.log('Failed to grab viewers');
+            logger.error('Failed to grab viewers from tmi on channel: ' + channel);
             return;
         }
         const jsonBody = JSON.parse(body);
