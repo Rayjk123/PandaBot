@@ -22,6 +22,9 @@ Next create a copy of the `config.example.js` called `config.js` and fill out co
 3. SSH into your Compute Engine Instance using the following gcloud command: 
   * `gcloud beta compute --project "project-name" ssh --zone "zone-of-compute-instance" "name-of-compute-instance"`
 4. Install the latest Node and nvm following this guide: https://cloud.google.com/nodejs/docs/setup
-4. Install mariadb by following this short guide: https://linuxize.com/post/install-mariadb-on-centos-7/
-5. Update config.js with inputted database paramaeters
-6. Run using `node index.js`
+5. Install mariadb by following this short guide: https://linuxize.com/post/install-mariadb-on-centos-7/
+  * Enter your db instance using `mysql -u root -p`
+  * `CREATE DATABASE twitchbot`
+  * `CREATE TABLE points (username VARCHAR(20), points INT NOT NULL, PRIMARY KEY(username));
+6. Update config.js with inputted database paramaeters
+7. Run using `node index.js`
